@@ -6,10 +6,16 @@ import (
 	"io"
 	"net"
 	"os"
+	"os/user"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
+)
+
+//ftp服务器默认监听端口号
+const (
+	FTP_SERVER_DEFAULT_LISTENING_PORT = 21
 )
 
 const (
@@ -77,6 +83,82 @@ func (this *GoFtpClientCmd) recvCmdResponse() (recvData string) {
 	return
 }
 
+func (this *GoFtpClientCmd) open() {
+	if this.Connected {
+		var remoteAddr = this.FtpConn.RemoteAddr().String()
+		var portIndex = strings.LastIndex(remoteAddr, ":")
+		fmt.Println("Already connected to ", remoteAddr[:portIndex], ", use close first.")
+	} else {
+		var paramCount = len(this.Params)
+		var ftpHost string
+		var ftpPort int
+		if paramCount == 0 {
+			fmt.Print("(To) ")
+			cmdReader := bufio.NewReader(os.Stdin)
+			cmdStr, err := cmdReader.ReadString('\n')
+			cmdStr = strings.Trim(cmdStr, "\r\n")
+			if err == nil && cmdStr != "" {
+				cmdParts := strings.Fields(cmdStr)
+				cmdPartCount := len(cmdParts)
+				if cmdPartCount == 1 {
+					ftpHost = cmdParts[0]
+					ftpPort = FTP_SERVER_DEFAULT_LISTENING_PORT
+				} else if cmdPartCount == 2 {
+					ftpHost = cmdParts[0]
+					port, err := strconv.Atoi(cmdParts[1])
+					if err != nil {
+						this.cmdUsage(this.Name)
+					} else {
+						ftpPort = port
+					}
+				}
+			} else {
+				this.cmdUsage(this.Name)
+			}
+		} else if paramCount == 1 {
+			ftpHost = this.Params[0]
+			ftpPort = FTP_SERVER_DEFAULT_LISTENING_PORT
+		} else if paramCount == 2 {
+			ftpHost = this.Params[0]
+			port, err := strconv.Atoi(this.Params[1])
+			if err != nil {
+				this.cmdUsage(this.Name)
+			} else {
+				ftpPort = port
+			}
+		}
+
+		//建立ftp连接
+		if ftpHost != "" {
+			ips, lookupErr := net.LookupIP(ftpHost)
+			if lookupErr != nil {
+				fmt.Println("ftp: Can't lookup host `", ftpHost, "'")
+			} else {
+				var port = strconv.Itoa(ftpPort)
+				for _, ip := range ips {
+					conn, connErr := net.DialTimeout("tcp", net.JoinHostPort(ip.String(), port),
+						time.Duration(DIAL_FTP_SERVER_TIMEOUT_SECONDS)*time.Second)
+					if connErr != nil {
+						fmt.Println("Trying ", ip, "...")
+						fmt.Println("ftp:", connErr.Error())
+					} else {
+						fmt.Println("Connected to", ip, ".")
+						var sysUser, _ = user.Current()
+						this.FtpConn = conn
+						this.Connected = true
+						this.Username = sysUser.Username
+						this.DefaultLocalWorkDir = sysUser.HomeDir
+						this.LocalWorkDir = sysUser.HomeDir
+
+						this.welcome()
+						break
+					}
+				}
+			}
+		}
+	}
+}
+
 func (this *GoFtpClientCmd) user() {
 	var remoteAddr = this.FtpConn.RemoteAddr().String()
 	var portIndex = strings.LastIndex(remoteAddr, ":")
@@ -108,7 +190,7 @@ func (this *GoFtpClientCmd) lcd() {
 			}
 			fiInfo, err := os.Stat(path)
 			if err != nil {
-				fmt.Println(err.Error())
+				fmt.Println("ftp:", err.Error())
 			} else {
 				if fiInfo.IsDir() {
 					this.LocalWorkDir = path

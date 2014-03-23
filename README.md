@@ -48,4 +48,17 @@ Windows下面的ftp命令主要有如下这些：
 2. Mac下面，如果不想折腾，装个Windows虚拟机吧。
 
 ##已经实现命令列表
+?
+bye
+cd
+close
+help
+quit
+version
+disconnect
+pwd
+lcd
+ls
+open
+
 

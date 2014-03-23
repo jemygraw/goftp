@@ -10,6 +10,7 @@ var FTP_CLIENT_CMD_HELP = map[string]string{
 	FCC_CD:            "change remote working directory",
 	FCC_LS:            "list contents of remote path",
 	FCC_LCD:           "change local working directory",
+	FCC_OPEN:          "connect to remote ftp server",
 }
 
 //其中带`[]`的参数都是可选参数
@@ -19,6 +20,7 @@ var FTP_CLIENT_CMD_USAGE = map[string]string{
 	FCC_CD:            "cd remote_dir",
 	FCC_LS:            "ls [remote_dir|remote_file] [local_output_file]",
 	FCC_LCD:           "lcd [local_directory]",
+	FCC_OPEN:          "open remote_host [port]",
 }
 
 type GoFtpClientHelp struct {
