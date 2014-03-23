@@ -314,7 +314,7 @@ func (this *GoFtpClientCmd) ls() {
 			if errPasv == nil {
 				if pasvHost != "" && ftpRespCode == FC_RESP_CODE_ENTER_PASSIVE_MODE {
 					this.sendCmdRequest([]string{FC_LIST, remoteDir})
-					this.recvCmdResponse()
+					go this.recvCmdResponse()
 					var pasvRespData = this.getPasvData(pasvHost, pasvPort)
 					if outputFile != nil {
 						var bWriter = bufio.NewWriter(outputFile)
