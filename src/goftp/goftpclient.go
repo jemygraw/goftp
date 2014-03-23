@@ -18,6 +18,7 @@ const (
 	FCC_HELP          string = "help"
 	FCC_BYE           string = "bye"
 	FCC_QUIT          string = "quit"
+	FCC_EXIT          string = "exit"
 	FCC_VERSION       string = "version"
 	FCC_DISCONNECT    string = "disconnect"
 	FCC_CLOSE         string = "close"
@@ -27,6 +28,7 @@ const (
 	FCC_CD            string = "cd"
 	FCC_LCD           string = "lcd"
 	FCC_OPEN          string = "open"
+	FCC_USER          string = "user"
 )
 
 const (
@@ -113,7 +115,7 @@ func (this *GoFtpClient) executeCommand() (err error) {
 	switch cmdName {
 	case FCC_CD:
 		this.cwd()
-	case FCC_QUIT, FCC_BYE:
+	case FCC_QUIT, FCC_BYE, FCC_EXIT:
 		this.quit()
 	case FCC_VERSION:
 		this.version()
@@ -127,6 +129,8 @@ func (this *GoFtpClient) executeCommand() (err error) {
 		this.lcd()
 	case FCC_LS:
 		this.ls()
+	case FCC_USER:
+		this.user()
 	case FCC_QUESTION_MARK, FCC_HELP:
 		if len(cmdParams) > 0 {
 			this.cmdHelp(cmdParams...)
@@ -157,6 +161,11 @@ func (this *GoFtpClient) quit() {
 //建立到ftp服务器的连接
 func (this *GoFtpClient) open() {
 	this.ftpClientCmd.open()
+}
+
+//使用交互式的方式验证登录用户名和密码
+func (this *GoFtpClient) user() {
+	this.ftpClientCmd.user()
 }
 
 //输出当前所在远程服务器的目录

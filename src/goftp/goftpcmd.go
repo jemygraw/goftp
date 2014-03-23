@@ -2,6 +2,7 @@ package goftp
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -23,10 +24,15 @@ const (
 	FC_RESPONSE_BUFFER int    = 1024
 )
 
+const (
+	FC_RESP_CODE_ENTER_PASSIVE_MODE int = 227
+)
+
 //定义与ftp服务器进行交互的命令，前缀FC表示Ftp Command
 const (
 	FC_USER string = "USER" //USER login_name
 	FC_PASS string = "PASS" //PASS login_pass
+	FC_ACCT string = "ACCT" //ACCT account_name
 	FC_QUIT string = "QUIT" //QUIT
 	FC_PWD  string = "PWD"  //PWD
 	FC_CWD  string = "CWD"  //CWD remote_dir
@@ -53,8 +59,20 @@ func (this *GoFtpClientCmd) welcome() {
 	readCount, err := this.FtpConn.Read(data)
 	if err == nil {
 		fmt.Print(string(data[:readCount]))
-		this.user()
-		this.pass()
+		//提示输入登录名
+		var remoteAddr = this.FtpConn.RemoteAddr().String()
+		var portIndex = strings.LastIndex(remoteAddr, ":")
+		fmt.Printf("Name (%s:%s):", remoteAddr[:portIndex], this.Username)
+		var username string
+		fmt.Scanln(&username)
+		this.sendCmdRequest([]string{FC_USER, username})
+		this.recvCmdResponse()
+		//提示输入登录密码
+		fmt.Print("Password:")
+		var password string
+		fmt.Scanln(&password)
+		this.sendCmdRequest([]string{FC_PASS, password})
+		this.recvCmdResponse()
 	} else {
 		fmt.Println(err)
 	}
@@ -77,7 +95,7 @@ func (this *GoFtpClientCmd) recvCmdResponse() (recvData string) {
 			recvData = string(recvBytes[:readCount])
 			fmt.Print(string(recvData))
 		} else {
-			fmt.Println(err)
+			fmt.Println("ftp:", err)
 		}
 	}
 	return
@@ -159,22 +177,12 @@ func (this *GoFtpClientCmd) open() {
 	}
 }
 
-func (this *GoFtpClientCmd) user() {
-	var remoteAddr = this.FtpConn.RemoteAddr().String()
-	var portIndex = strings.LastIndex(remoteAddr, ":")
-	fmt.Printf("Name (%s:%s):", remoteAddr[:portIndex], this.Username)
-	var username string
-	fmt.Scanln(&username)
-	this.sendCmdRequest([]string{FC_USER, username})
-	this.recvCmdResponse()
-}
-
-func (this *GoFtpClientCmd) pass() {
-	fmt.Print("Password:")
-	var password string
-	fmt.Scanln(&password)
-	this.sendCmdRequest([]string{FC_PASS, password})
-	this.recvCmdResponse()
+func (this *GoFtpClientCmd) parseCmdResponse(respData string) (ftpRespCode int, err error) {
+	var recvDataParts = strings.Fields(respData)
+	if len(recvDataParts) > 0 {
+		ftpRespCode, err = strconv.Atoi(recvDataParts[0])
+	}
+	return
 }
 
 func (this *GoFtpClientCmd) lcd() {
@@ -203,6 +211,54 @@ func (this *GoFtpClientCmd) lcd() {
 	} else {
 		this.cmdUsage(this.Name)
 	}
+}
+
+func (this *GoFtpClientCmd) user() {
+	var paramCount = len(this.Params)
+	var username string
+	var password string
+	var account string
+	if paramCount == 0 {
+		fmt.Print("Username:")
+		fmt.Scanln(&username)
+		username = strings.Trim(username, "\r\n")
+		if username == "" {
+			this.cmdUsage(this.Name)
+		} else {
+			this.sendCmdRequest([]string{FC_USER, username})
+			this.recvCmdResponse()
+			fmt.Print("Password:")
+			fmt.Scanln(&password)
+			this.sendCmdRequest([]string{FC_PASS, password})
+			this.recvCmdResponse()
+		}
+	} else if paramCount == 1 {
+		username = this.Params[0]
+		this.sendCmdRequest([]string{FC_USER, username})
+		this.recvCmdResponse()
+		fmt.Print("Password:")
+		fmt.Scanln(&password)
+		this.sendCmdRequest([]string{FC_PASS, password})
+		this.recvCmdResponse()
+	} else if paramCount == 2 {
+		username = this.Params[0]
+		password = this.Params[1]
+		this.sendCmdRequest([]string{FC_USER, username})
+		this.recvCmdResponse()
+		this.sendCmdRequest([]string{FC_PASS, password})
+		this.recvCmdResponse()
+	} else if paramCount == 3 {
+		username = this.Params[0]
+		password = this.Params[1]
+		account = this.Params[2]
+		this.sendCmdRequest([]string{FC_USER, username})
+		this.recvCmdResponse()
+		this.sendCmdRequest([]string{FC_PASS, password})
+		this.recvCmdResponse()
+		this.sendCmdRequest([]string{FC_ACCT, account})
+		this.recvCmdResponse()
+	}
+
 }
 
 func (this *GoFtpClientCmd) pwd() {
@@ -254,20 +310,22 @@ func (this *GoFtpClientCmd) ls() {
 		}
 
 		if err == nil {
-			pasvHost, pasvPort := this.pasv()
-			if pasvHost != "" {
-				this.sendCmdRequest([]string{FC_LIST, remoteDir})
-				this.recvCmdResponse()
-				var pasvRespData = this.getPasvData(pasvHost, pasvPort)
-				if outputFile != nil {
-					var bWriter = bufio.NewWriter(outputFile)
-					bWriter.WriteString(string(pasvRespData))
-					bWriter.Flush()
-					outputFile.Close()
-				} else {
-					fmt.Print(string(pasvRespData))
+			pasvHost, pasvPort, ftpRespCode, errPasv := this.pasv()
+			if errPasv == nil {
+				if pasvHost != "" && ftpRespCode == FC_RESP_CODE_ENTER_PASSIVE_MODE {
+					this.sendCmdRequest([]string{FC_LIST, remoteDir})
+					this.recvCmdResponse()
+					var pasvRespData = this.getPasvData(pasvHost, pasvPort)
+					if outputFile != nil {
+						var bWriter = bufio.NewWriter(outputFile)
+						bWriter.WriteString(string(pasvRespData))
+						bWriter.Flush()
+						outputFile.Close()
+					} else {
+						fmt.Print(string(pasvRespData))
+					}
+					this.recvCmdResponse()
 				}
-				this.recvCmdResponse()
 			}
 		}
 	} else {
@@ -275,18 +333,25 @@ func (this *GoFtpClientCmd) ls() {
 	}
 }
 
-func (this *GoFtpClientCmd) pasv() (pasvHost string, pasvPort int) {
+func (this *GoFtpClientCmd) pasv() (pasvHost string, pasvPort int, ftpRespCode int, err error) {
 	if this.Connected {
 		this.sendCmdRequest([]string{FC_PASV})
 		var recvData = this.recvCmdResponse()
 		var startIndex = strings.Index(recvData, "(")
 		var endIndex = strings.LastIndex(recvData, ")")
-		var pasvDataStr = recvData[startIndex+1 : endIndex]
-		var pasvDataParts = strings.Split(pasvDataStr, ",")
-		pasvHost = strings.Join(pasvDataParts[:4], ".")
-		var p1, _ = strconv.Atoi(pasvDataParts[4])
-		var p2, _ = strconv.Atoi(pasvDataParts[5])
-		pasvPort = p1*256 + p2
+		if startIndex == -1 || endIndex == -1 {
+			err = errors.New("ftp: PASV command failed.")
+		} else {
+			var pasvDataStr = recvData[startIndex+1 : endIndex]
+			var pasvDataParts = strings.Split(pasvDataStr, ",")
+			pasvHost = strings.Join(pasvDataParts[:4], ".")
+			var p1, p2 int
+			p1, err = strconv.Atoi(pasvDataParts[4])
+			p2, err = strconv.Atoi(pasvDataParts[5])
+			pasvPort = p1*256 + p2
+
+			ftpRespCode, err = this.parseCmdResponse(recvData)
+		}
 	} else {
 		fmt.Println("Not connected.")
 	}
