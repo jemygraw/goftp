@@ -6,22 +6,31 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"time"
 )
 
-//定义ftp客户端命令
+//定义ftp客户端支持的用户命令，FCC表示Ftp Client Command
 const (
 	FCC_QUIT       string = "quit"
 	FCC_VERSION    string = "version"
 	FCC_DISCONNECT string = "disconnect"
 	FCC_CLOSE      string = "close"
+	FCC_PWD        string = "pwd"
 )
 
-type GoFtpClient struct {
-	Host string
-	Port int
+const (
+	DIAL_FTP_SERVER_TIMEOUT_SECONDS int = 30 //连接ftp服务器的超时时间
+)
 
-	running      bool
-	ftpClientCmd GoFtpClientCmd
+//表示ftp客户端的结构体
+type GoFtpClient struct {
+	Host string //ftp服务器主机名
+	Port int    //ftp服务器监听端口号
+
+	running      bool           //表示ftp客户端是否处于运行中的flag
+	ftpClientCmd GoFtpClientCmd //组合的ftp客户端命令结构体
+
+	GoFtpClientHelp //组合的ftp帮助结构体
 }
 
 //使用初始命令行参数来连接ftp服务器
@@ -34,7 +43,8 @@ func (this *GoFtpClient) TryConnect() {
 	} else {
 		var port = strconv.Itoa(this.Port)
 		for _, ip := range ips {
-			conn, connErr := net.Dial("tcp", net.JoinHostPort(ip.String(), port))
+			conn, connErr := net.DialTimeout("tcp", net.JoinHostPort(ip.String(), port),
+				time.Duration(DIAL_FTP_SERVER_TIMEOUT_SECONDS)*time.Second)
 			if connErr != nil {
 				fmt.Println("Trying ", ip, "...")
 				fmt.Println("goftp:", connErr.Error())
@@ -51,6 +61,7 @@ func (this *GoFtpClient) TryConnect() {
 	}
 }
 
+//进入命令交互模式
 func (this *GoFtpClient) EnterPromptMode() {
 	this.running = true
 	var line string
@@ -89,6 +100,8 @@ func (this *GoFtpClient) executeCommand() (err error) {
 		this.version()
 	case FCC_CLOSE, FCC_DISCONNECT:
 		this.disconnect()
+	case FCC_PWD:
+		this.pwd()
 	default:
 		err = errors.New("?Invalid command.")
 	}
@@ -99,15 +112,18 @@ func (this *GoFtpClient) executeCommand() (err error) {
 	return
 }
 
+//断开和ftp的连接
 func (this *GoFtpClient) disconnect() {
 	this.ftpClientCmd.disconnect()
 }
 
+//断开和ftp的连接，并且退出客户端程序
 func (this *GoFtpClient) quit() {
 	this.running = false
 	this.disconnect()
 }
 
-func (this *GoFtpClient) version() {
-	fmt.Println("GoFtpClient v1.0\r\n多科学堂出品\r\nhttps://github.com/jemygraw/goftp")
+//输出当前所在远程服务器的目录
+func (this *GoFtpClient) pwd() {
+	this.ftpClientCmd.pwd()
 }

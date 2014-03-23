@@ -10,10 +10,12 @@ const (
 	FC_SUFFIX = "\r\n"
 )
 
+//定义与ftp服务器进行交互的命令，前缀FC表示Ftp Command
 const (
 	FC_USER = "USER" //USER login_name
 	FC_PASS = "PASS" //PASS login_pass
-	FC_QUIT = "QUIT" //
+	FC_QUIT = "QUIT" //QUIT
+	FC_PWD  = "PWD"  //PWD
 )
 
 type GoFtpClientCmd struct {
@@ -63,6 +65,11 @@ func (this *GoFtpClientCmd) pass() {
 	var password string
 	fmt.Scanln(&password)
 	this.sendCmdRequest([]string{FC_PASS, password})
+	this.recvCmdResponse()
+}
+
+func (this *GoFtpClientCmd) pwd() {
+	this.sendCmdRequest([]string{FC_PWD})
 	this.recvCmdResponse()
 }
 
