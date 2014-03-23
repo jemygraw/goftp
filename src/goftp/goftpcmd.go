@@ -182,6 +182,7 @@ func (this *GoFtpClientCmd) ls() {
 				var bWriter = bufio.NewWriter(outputFile)
 				bWriter.WriteString(string(pasvRespData))
 				bWriter.Flush()
+				outputFile.Close()
 				this.recvCmdResponse()
 			}
 		}
