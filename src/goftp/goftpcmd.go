@@ -44,9 +44,9 @@ type GoFtpClientCmd struct {
 
 func (this *GoFtpClientCmd) welcome() {
 	var data []byte = make([]byte, 1024)
-	_, err := this.FtpConn.Read(data)
+	readCount, err := this.FtpConn.Read(data)
 	if err == nil {
-		fmt.Print(string(data))
+		fmt.Print(string(data[:readCount]))
 		this.user()
 		this.pass()
 	} else {
@@ -66,9 +66,9 @@ func (this *GoFtpClientCmd) sendCmdRequest(ftpParams []string) {
 func (this *GoFtpClientCmd) recvCmdResponse() (recvData string) {
 	if this.Connected {
 		var recvBytes []byte = make([]byte, FC_RESPONSE_BUFFER)
-		_, err := this.FtpConn.Read(recvBytes)
+		readCount, err := this.FtpConn.Read(recvBytes)
 		if err == nil {
-			recvData = string(recvBytes)
+			recvData = string(recvBytes[:readCount])
 			fmt.Print(string(recvData))
 		} else {
 			fmt.Println(err)
@@ -202,6 +202,8 @@ func (this *GoFtpClientCmd) pasv() (pasvHost string, pasvPort int) {
 		var p1, _ = strconv.Atoi(pasvDataParts[4])
 		var p2, _ = strconv.Atoi(pasvDataParts[5])
 		pasvPort = p1*256 + p2
+	} else {
+		fmt.Println("Not connected.")
 	}
 	return
 }
