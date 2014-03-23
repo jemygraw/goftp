@@ -83,7 +83,7 @@ func (this *GoFtpClient) EnterPromptMode() {
 		fmt.Print("ftp>")
 		cmdReader := bufio.NewReader(os.Stdin)
 		cmdStr, err := cmdReader.ReadString('\n')
-		cmdStr = strings.Trim(cmdStr, "\n")
+		cmdStr = strings.Trim(cmdStr, "\r\n")
 		if err == nil && cmdStr != "" {
 			this.parseCommand(cmdStr)
 			err := this.executeCommand()
