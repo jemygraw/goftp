@@ -1,9 +1,11 @@
 package goftp
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"net"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -11,11 +13,14 @@ import (
 
 //定义ftp客户端支持的用户命令，FCC表示Ftp Client Command
 const (
-	FCC_QUIT       string = "quit"
-	FCC_VERSION    string = "version"
-	FCC_DISCONNECT string = "disconnect"
-	FCC_CLOSE      string = "close"
-	FCC_PWD        string = "pwd"
+	FCC_QUESTION_MARK string = "?"
+	FCC_HELP          string = "help"
+	FCC_BYE           string = "bye"
+	FCC_QUIT          string = "quit"
+	FCC_VERSION       string = "version"
+	FCC_DISCONNECT    string = "disconnect"
+	FCC_CLOSE         string = "close"
+	FCC_PWD           string = "pwd"
 )
 
 const (
@@ -64,18 +69,18 @@ func (this *GoFtpClient) TryConnect() {
 //进入命令交互模式
 func (this *GoFtpClient) EnterPromptMode() {
 	this.running = true
-	var line string
 	for this.running {
 		fmt.Print("ftp>")
-		fmt.Scanln(&line)
-		if line != "" {
-			this.parseCommand(line)
+		cmdReader := bufio.NewReader(os.Stdin)
+		cmdStr, err := cmdReader.ReadString('\n')
+		if err == nil && cmdStr != "" {
+			this.parseCommand(cmdStr)
 			err := this.executeCommand()
 			if err != nil {
 				fmt.Println(err.Error())
 			}
-			//重置line值
-			line = ""
+			//重置cmdStr值
+			cmdStr = ""
 		}
 	}
 }
@@ -92,9 +97,9 @@ func (this *GoFtpClient) parseCommand(cmdStr string) {
 //执行交互命令
 func (this *GoFtpClient) executeCommand() (err error) {
 	var cmdName = strings.ToLower(this.ftpClientCmd.Name)
-	//var cmdParams = this.ftpClientCmd.Params
+	var cmdParams = this.ftpClientCmd.Params
 	switch cmdName {
-	case FCC_QUIT:
+	case FCC_QUIT, FCC_BYE:
 		this.quit()
 	case FCC_VERSION:
 		this.version()
@@ -102,6 +107,12 @@ func (this *GoFtpClient) executeCommand() (err error) {
 		this.disconnect()
 	case FCC_PWD:
 		this.pwd()
+	case FCC_QUESTION_MARK, FCC_HELP:
+		if len(cmdParams) > 0 {
+			this.cmdHelp(cmdParams)
+		} else {
+			this.help()
+		}
 	default:
 		err = errors.New("?Invalid command.")
 	}
