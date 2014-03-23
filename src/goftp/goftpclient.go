@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"os/user"
 	"strconv"
 	"strings"
 	"time"
@@ -24,6 +25,7 @@ const (
 	FCC_LS            string = "ls"
 	FCC_DIR           string = "dir"
 	FCC_CD            string = "cd"
+	FCC_LCD           string = "lcd"
 )
 
 const (
@@ -58,9 +60,13 @@ func (this *GoFtpClient) TryConnect() {
 				fmt.Println("goftp:", connErr.Error())
 			} else {
 				fmt.Println("Connected to", ip, ".")
+				var sysUser, _ = user.Current()
 				this.ftpClientCmd = GoFtpClientCmd{
-					FtpConn:   conn,
-					Connected: true,
+					FtpConn:             conn,
+					Connected:           true,
+					Username:            sysUser.Username,
+					DefaultLocalWorkDir: sysUser.HomeDir,
+					LocalWorkDir:        sysUser.HomeDir,
 				}
 				this.ftpClientCmd.welcome()
 				break
@@ -77,6 +83,7 @@ func (this *GoFtpClient) EnterPromptMode() {
 		fmt.Print("ftp>")
 		cmdReader := bufio.NewReader(os.Stdin)
 		cmdStr, err := cmdReader.ReadString('\n')
+		cmdStr = strings.Trim(cmdStr, "\n")
 		if err == nil && cmdStr != "" {
 			this.parseCommand(cmdStr)
 			err := this.executeCommand()
@@ -113,6 +120,10 @@ func (this *GoFtpClient) executeCommand() (err error) {
 		this.disconnect()
 	case FCC_PWD:
 		this.pwd()
+	case FCC_LCD:
+		this.lcd()
+	case FCC_LS:
+		this.ls()
 	case FCC_QUESTION_MARK, FCC_HELP:
 		if len(cmdParams) > 0 {
 			this.cmdHelp(cmdParams...)
@@ -148,4 +159,15 @@ func (this *GoFtpClient) pwd() {
 //更改客户端所在远程服务器的目录
 func (this *GoFtpClient) cwd() {
 	this.ftpClientCmd.cwd()
+}
+
+//更改本地工作目录，默认为用户文件目录
+func (this *GoFtpClient) lcd() {
+	this.ftpClientCmd.lcd()
+}
+
+//获取指定目录(无参数时为当前目录)下的文件列表，并可以
+//选择性地将结果输出到指定的文件中
+func (this *GoFtpClient) ls() {
+	this.ftpClientCmd.ls()
 }
