@@ -218,9 +218,9 @@ func (this *GoFtpClientCmd) getPasvData(pasvHost string, pasvPort int) (pasvResp
 		fmt.Println(pasvConnErr.Error())
 	} else {
 		var bReader = bufio.NewReader(pasvConn)
-		pasvRespData = make([]byte, FC_RESPONSE_BUFFER)
+		pasvRespData = make([]byte, 0)
 		for {
-			line, err := bReader.ReadString('\n')
+			line, err := bReader.ReadBytes('\n')
 			pasvRespData = append(pasvRespData, []byte(line)...)
 			if err == io.EOF {
 				break
