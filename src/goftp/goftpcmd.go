@@ -169,8 +169,6 @@ func (this *GoFtpClientCmd) ls() {
 			if err != nil {
 				fmt.Println("ftp: Can't access `", resultOutputFile, "': No such file or directory")
 			}
-		} else {
-			outputFile = os.Stdin
 		}
 
 		if err == nil {
@@ -179,10 +177,14 @@ func (this *GoFtpClientCmd) ls() {
 				this.sendCmdRequest([]string{FC_LIST, remoteDir})
 				this.recvCmdResponse()
 				var pasvRespData = this.getPasvData(pasvHost, pasvPort)
-				var bWriter = bufio.NewWriter(outputFile)
-				bWriter.WriteString(string(pasvRespData))
-				bWriter.Flush()
-				outputFile.Close()
+				if outputFile != nil {
+					var bWriter = bufio.NewWriter(outputFile)
+					bWriter.WriteString(string(pasvRespData))
+					bWriter.Flush()
+					outputFile.Close()
+				} else {
+					fmt.Print(string(pasvRespData))
+				}
 				this.recvCmdResponse()
 			}
 		}
