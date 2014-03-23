@@ -7,6 +7,7 @@ import (
 var FTP_CLIENT_HELP = map[string]string{
 	FCC_HELP:          "print local help information",
 	FCC_QUESTION_MARK: "print local help information",
+	FCC_CD:            "change remote working directory",
 }
 
 type GoFtpClientHelp struct {
@@ -20,12 +21,12 @@ func (this *GoFtpClientHelp) help() {
 
 }
 
-func (this *GoFtpClientHelp) cmdHelp(cmdNames []string) {
+func (this *GoFtpClientHelp) cmdHelp(cmdNames ...string) {
 	for _, cmdName := range cmdNames {
 		if cmdHelpDoc, ok := FTP_CLIENT_HELP[cmdName]; ok {
 			fmt.Println(cmdName, "\t", cmdHelpDoc)
 		} else {
-			fmt.Println(cmdName, "\tN/A")
+			fmt.Println("?Invalid help command `", cmdName, "'")
 		}
 	}
 }

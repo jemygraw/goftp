@@ -21,6 +21,9 @@ const (
 	FCC_DISCONNECT    string = "disconnect"
 	FCC_CLOSE         string = "close"
 	FCC_PWD           string = "pwd"
+	FCC_LS            string = "ls"
+	FCC_DIR           string = "dir"
+	FCC_CD            string = "cd"
 )
 
 const (
@@ -44,7 +47,7 @@ func (this *GoFtpClient) TryConnect() {
 
 	ips, lookupErr := net.LookupIP(this.Host)
 	if lookupErr != nil {
-		fmt.Println("goftp: Can't lookup ", this.Host)
+		fmt.Println("goftp: Can't lookup host `", this.Host, "'")
 	} else {
 		var port = strconv.Itoa(this.Port)
 		for _, ip := range ips {
@@ -56,7 +59,8 @@ func (this *GoFtpClient) TryConnect() {
 			} else {
 				fmt.Println("Connected to", ip, ".")
 				this.ftpClientCmd = GoFtpClientCmd{
-					FtpConn: conn,
+					FtpConn:   conn,
+					Connected: true,
 				}
 				this.ftpClientCmd.welcome()
 				break
@@ -99,6 +103,8 @@ func (this *GoFtpClient) executeCommand() (err error) {
 	var cmdName = strings.ToLower(this.ftpClientCmd.Name)
 	var cmdParams = this.ftpClientCmd.Params
 	switch cmdName {
+	case FCC_CD:
+		this.cwd()
 	case FCC_QUIT, FCC_BYE:
 		this.quit()
 	case FCC_VERSION:
@@ -109,7 +115,7 @@ func (this *GoFtpClient) executeCommand() (err error) {
 		this.pwd()
 	case FCC_QUESTION_MARK, FCC_HELP:
 		if len(cmdParams) > 0 {
-			this.cmdHelp(cmdParams)
+			this.cmdHelp(cmdParams...)
 		} else {
 			this.help()
 		}
@@ -137,4 +143,9 @@ func (this *GoFtpClient) quit() {
 //输出当前所在远程服务器的目录
 func (this *GoFtpClient) pwd() {
 	this.ftpClientCmd.pwd()
+}
+
+//更改客户端所在远程服务器的目录
+func (this *GoFtpClient) cwd() {
+	this.ftpClientCmd.cwd()
 }
