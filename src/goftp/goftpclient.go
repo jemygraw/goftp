@@ -50,20 +50,26 @@ type GoFtpClient struct {
 func (this *GoFtpClient) TryConnect() {
 	this.running = true
 
+	//根据提供的主机名解析对应的ip地址，一个主机名可能有多个ip地址，
+	//尝试依次进行连接，连接成功就不再尝试下一个ip地址
 	ips, lookupErr := net.LookupIP(this.Host)
 	if lookupErr != nil {
 		fmt.Println("ftp: Can't lookup host `", this.Host, "'")
 	} else {
 		var port = strconv.Itoa(this.Port)
 		for _, ip := range ips {
+			//尝试连接ftp服务器，并设置连接的等待超时时间
 			conn, connErr := net.DialTimeout("tcp", net.JoinHostPort(ip.String(), port),
 				time.Duration(DIAL_FTP_SERVER_TIMEOUT_SECONDS)*time.Second)
 			if connErr != nil {
+				//连接出错了，悲剧，打印错误信息，然后尝试下一个ip地址
 				fmt.Println("Trying ", ip, "...")
 				fmt.Println("ftp:", connErr.Error())
 			} else {
 				fmt.Println("Connected to", ip, ".")
+				//获取操作系统当前登录用户
 				var sysUser, _ = user.Current()
+				//设置ftp客户端命令结构体对象信息
 				this.ftpClientCmd = GoFtpClientCmd{
 					FtpConn:             conn,
 					Connected:           true,
@@ -71,27 +77,46 @@ func (this *GoFtpClient) TryConnect() {
 					DefaultLocalWorkDir: sysUser.HomeDir,
 					LocalWorkDir:        sysUser.HomeDir,
 				}
+				//打印ftp服务器连接回复信息，并提示用户登录
 				this.ftpClientCmd.welcome()
+				//既然已经找到了能够连接的ip地址，下面的即使有也不去尝试了
 				break
 			}
 		}
+		//不管是否连接ftp服务器成功，我们都会进入命令交互模式
 		this.EnterPromptMode()
 	}
 }
 
 //进入命令交互模式
 func (this *GoFtpClient) EnterPromptMode() {
+	//设置ftp客户端运行状态
 	this.running = true
+	//在ftp客户端运行状态为true的时候，不断地检测用户输入的交互命令
+	//然后解析输入的命令，并执行解析后的命令，执行完，再次等待用户
+	//的交互命令
 	for this.running {
 		fmt.Print("ftp>")
+
+		//这里使用bufio来读取用户的一行交互输入，这里之所以不使用
+		//fmt包里面的scan那些函数，是因为用户的交互输入格式为命令
+		//然后可能跟上一些参数，中间用空格分开。scan函数没有办法
+		//一次读取这些数据，因为scan函数遇到空格就停止了，把剩下
+		//的数据作为下一次scan读取的数据
 		cmdReader := bufio.NewReader(os.Stdin)
 		cmdStr, err := cmdReader.ReadString('\n')
+		//这里把读取的数据后面的换行去掉，对于Mac是"\r"，Linux下面
+		//是"\n"，Windows下面是"\r\n"，所以为了支持多平台，直接用
+		//"\r\n"作为过滤字符
 		cmdStr = strings.Trim(cmdStr, "\r\n")
+
+		//如果输入为空，也就是用户直接按Enter键，那么直接等待下次
+		//交互命令，否则去解析命令并执行
 		if err == nil && cmdStr != "" {
 			this.parseCommand(cmdStr)
 			err := this.executeCommand()
 			if err != nil {
-				fmt.Println(err.Error())
+				fmt.Println("ftp:", err.Error())
 			}
 			//重置cmdStr值
 			cmdStr = ""
@@ -101,6 +126,8 @@ func (this *GoFtpClient) EnterPromptMode() {
 
 //解析交互命令
 func (this *GoFtpClient) parseCommand(cmdStr string) {
+	//使用strings包的Fields来分隔命令和参数，因为这个函数
+	//是根据空白字符来分隔的
 	var parts = strings.Fields(cmdStr)
 	if len(parts) > 0 {
 		this.ftpClientCmd.Name = parts[0]
@@ -110,6 +137,8 @@ func (this *GoFtpClient) parseCommand(cmdStr string) {
 
 //执行交互命令
 func (this *GoFtpClient) executeCommand() (err error) {
+	//这里其实我们对交互命令的大小写是忽略的，比如你输入
+	//LS和ls是表示的一个命令
 	var cmdName = strings.ToLower(this.ftpClientCmd.Name)
 	var cmdParams = this.ftpClientCmd.Params
 	switch cmdName {
@@ -141,11 +170,17 @@ func (this *GoFtpClient) executeCommand() (err error) {
 		err = errors.New("?Invalid command.")
 	}
 
-	//重置命令
+	//执行完成，重置命令
 	this.ftpClientCmd.Name = ""
 	this.ftpClientCmd.Params = nil
 	return
 }
+
+/*
+下面的这些函数其实使用了GoFtpClientCmd来代理执行
+以后我们可以把这些函数的首字母改为大写的，就能够
+导出了，这个包goftp就可以作为一个开源包来使用
+*/
 
 //断开和ftp的连接
 func (this *GoFtpClient) disconnect() {
