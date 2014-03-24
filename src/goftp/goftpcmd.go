@@ -257,6 +257,8 @@ func (this *GoFtpClientCmd) user() {
 		this.recvCmdResponse()
 		this.sendCmdRequest([]string{FC_ACCT, account})
 		this.recvCmdResponse()
+	} else {
+		this.cmdUsage(this.Name)
 	}
 
 }

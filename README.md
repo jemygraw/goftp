@@ -60,5 +60,5 @@ pwd
 lcd
 ls
 open
-
+usage
 
