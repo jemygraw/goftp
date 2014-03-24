@@ -2,8 +2,10 @@ package goftp
 
 import (
 	"fmt"
+	"strings"
 )
 
+//ftp客户端命令的帮助信息
 var FTP_CLIENT_CMD_HELP = map[string]string{
 	FCC_HELP:          "print local help information",
 	FCC_QUESTION_MARK: "print local help information",
@@ -12,8 +14,10 @@ var FTP_CLIENT_CMD_HELP = map[string]string{
 	FCC_LCD:           "change local working directory",
 	FCC_OPEN:          "connect to remote ftp server",
 	FCC_USER:          "send new user information",
+	FCC_USAGE:         "show usage of ftp command",
 }
 
+//ftp客户端命令的使用方法
 //其中带`[]`的参数都是可选参数
 var FTP_CLIENT_CMD_USAGE = map[string]string{
 	FCC_HELP:          "help [cmd1],[cmd2],...",
@@ -38,6 +42,7 @@ func (this *GoFtpClientHelp) help() {
 
 func (this *GoFtpClientHelp) cmdHelp(cmdNames ...string) {
 	for _, cmdName := range cmdNames {
+		cmdName = strings.ToLower(cmdName)
 		if cmdHelpDoc, ok := FTP_CLIENT_CMD_HELP[cmdName]; ok {
 			fmt.Println(cmdName, "\t", cmdHelpDoc)
 		} else {
@@ -48,6 +53,7 @@ func (this *GoFtpClientHelp) cmdHelp(cmdNames ...string) {
 
 func (this *GoFtpClientHelp) cmdUsage(cmdNames ...string) {
 	for _, cmdName := range cmdNames {
+		cmdName = strings.ToLower(cmdName)
 		if cmdUsageDoc, ok := FTP_CLIENT_CMD_USAGE[cmdName]; ok {
 			fmt.Println("Usage:", cmdUsageDoc)
 		} else {

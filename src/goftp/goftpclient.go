@@ -29,6 +29,9 @@ const (
 	FCC_LCD           string = "lcd"
 	FCC_OPEN          string = "open"
 	FCC_USER          string = "user"
+
+	//这个命令是为了方便学习ftp客户端而加上的，并不是ftp客户端的标准命令
+	FCC_USAGE string = "usage"
 )
 
 const (
@@ -160,6 +163,12 @@ func (this *GoFtpClient) executeCommand() (err error) {
 		this.ls()
 	case FCC_USER:
 		this.user()
+	case FCC_USAGE:
+		if len(cmdParams) > 0 {
+			this.cmdUsage(cmdParams...)
+		} else {
+			this.cmdHelp(cmdName)
+		}
 	case FCC_QUESTION_MARK, FCC_HELP:
 		if len(cmdParams) > 0 {
 			this.cmdHelp(cmdParams...)
