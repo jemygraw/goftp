@@ -106,13 +106,14 @@ func countFile(path string) (fileLineCount GoFileLineCount, err error) {
 			} else if strings.HasPrefix(lineData, BLOCK_COMMENT_START_FLAG) {
 				isBlockComment = true
 				fileLineCount.BlockCommentCount++
-			} else if strings.HasPrefix(lineData, BLOCK_COMMENT_END_FLAG) {
+			} else if isBlockComment && strings.HasSuffix(lineData, BLOCK_COMMENT_END_FLAG) {
 				isBlockComment = false
 				fileLineCount.BlockCommentCount++
 			} else {
 				if isBlockComment {
 					fileLineCount.BlockCommentCount++
 				} else {
+					//检查是否存在行内的行注释或者块注释
 					fileLineCount.CodeCount++
 				}
 			}
